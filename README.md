@@ -1,11 +1,9 @@
 htmlgen.py
 ==========
 
-High flexible html generation library for python - particularly useful for very lightweight development of static content.
+Highly flexible html generation library for python - particularly useful for very lightweight development of static content.
 
-I was annoyed at how heavyweight everything I could find was, so sometime ago I wrote some crappy python scripts to help manage my own website. That is ensure common headers and footers and that sort of thing.
-
-Well, after using it for several years and going through a couple of rewrites I decided I should clean it up and publish it, so here it is.
+I was annoyed at how heavyweight everything I could find was, so sometime ago I wrote some crappy python scripts to help manage my own website, to ensure common headers and footers and that sort of thing. I continued development on it for a couple of years until it was not so crappy. After glancing around for other options it seems there are tons for ruby and none for python. So, I decided to clean it up and publish it.
 
 Deps:
 There are a couple of dependencies, see htmlgen.py for what to install - it's not much I promise.
