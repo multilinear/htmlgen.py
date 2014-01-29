@@ -36,12 +36,13 @@ Dependencies:
  - httplib2 (debian: python-httplib2)
 """
 
-import os
-import sys
-import time
 import errno
-import StringIO
 import HTMLParser
+import os
+import re
+import sys
+import StringIO
+import time
 from bs4 import BeautifulSoup
 
 src_base = 'dummy'
@@ -75,19 +76,32 @@ def panic(msg):
   sys.exit(1)
 
 
-def listdir(d):
+def listdir(directory, exclude_patterns=None):
   """ A simple wrapper that skips special files. """
-  return ('/'.join([d,f]) for f in os.listdir(d) if f[0] != '.')
+  ld = os.listdir(directory)
+  if exclude_patterns:
+    # go through each pattern, and drop everythign that matches it
+    for p in exclude_patterns:
+      ld = [d for d in ld if not re.match(p, d)]
+  # put the directories back on
+  return ('/'.join([directory,f]) for f in ld if f[0] != '.')
 
 
-def clean(abspath, nodelete_abspath=None):
+def clean(abspath=None, nodelete_abspath=None):
   """ Deletes a directory hierarchy.
+  globals used:
+    src_base: default for nodelete_abspath
+    dest_base: default for abspath
 
   abspath -- The path of the directory under which everything will be deleted.
   nodelete_abspath -- a path that may be below "path" which should not be
       deleted
   Returns: None 
   """
+  if abspath is None:
+    abspath = dest_base
+  if nodelete_abspath is None:
+    nodelete_abspath = src_base
   print 'Cleaning', abspath, nodelete_abspath
   for tuple in os.walk(abspath, topdown=False):  
     (path, subdirs, files) = tuple
@@ -123,11 +137,12 @@ def set_perms(file):
     pass
 
 
-def create_dest(src_base, dest_base, curdir):
+def create_dest(curdir):
   """ Create a destination directory to match a dir in the source tree.
+  globals used:
+    src_base: The source tree basepath
+    dest_base: The destination tree basepath
 
-  src_base -- The source tree basepath
-  dest_base -- The destination tree basepath
   curdir -- The directory in the source tree that we want created
     in the destination tree.
   Return: New destination directory
@@ -205,18 +220,25 @@ def symlink_files(src_path, dest_path):
 
 # This function can be used as the only line in a file
 # to index that directory and all below it
-def simple_index(src_dirpath, src_base, dest_base, gen_header, gen_footer):
+def simple_index(gen_header, gen_footer, src_dirpath=None):
   """ Build an index of a directory tree.
+  globals used:
+    curdir: directory to index (overriden by src_dirpath)
+    src_base: base of the source hieararchy.
+    dest_base: base of the destination hieararchy.
   
-  src_dirpath -- directory to build the tree in.
-  src_base -- base of the source hieararchy.
-  dest_base -- base of the destination hieararchy.
   gen_header -- function outputing anything that should be added to the header
     of the file. (takes title and path)
   gen_footer -- function outputing anything that should be added to the footer
     of the file. (takes title and path)
+  src_dirpath -- directory to build the tree in.
   Returns: None 
   """
+  global curdir
+  global src_base
+  global dest_base
+  if src_dirpath is None:
+    src_dirpath = curdir
   src_dirpath = os.path.join(src_base, src_dirpath)
   print 'simple_index', src_dirpath
   rel_path = os.path.relpath(src_dirpath, src_base)
@@ -257,34 +279,6 @@ def simple_index(src_dirpath, src_base, dest_base, gen_header, gen_footer):
     dump_file(os.path.join(dest_path, 'index.html'), '\n'.join(data))
 
 
-def run_python_tag(text, context):
-  # fix tabbing
-  lines = text.split('\n')
-  # strip all spaces from the first line
-  if lines[0]:
-    num_spaces = 0
-    while lines[0][num_spaces] == ' ':
-      num_spaces += 1
-    lines[0] = lines[0][num_spaces:]
-  # strip the same number as line 2 from the rest
-  if len(lines) > 1:
-    if lines[1]:
-      num_spaces = 0
-      while lines[1][num_spaces] == ' ':
-        num_spaces += 1
-      first_line = lines[0]
-      lines = [t[num_spaces:] for t in lines]
-      lines[0] = first_line
-  text = '\n'.join(lines)
-  # run the code we have
-  new_context = context.copy()
-  output = StringIO.StringIO()
-  old_stdout = sys.stdout
-  sys.stdout = output 
-  exec text in new_context
-  sys.stdout = old_stdout
-  return output.getvalue()
-
 def run_python_html(code, context, document_name):
   """ Run <python> tags and compile the result into an HTML string.
 
@@ -293,6 +287,34 @@ def run_python_html(code, context, document_name):
   document_name -- name of the document (for debugging purposes)
   Returns: an HTML string.
   """
+
+  def run_python_tag(text, context):
+    # fix tabbing
+    lines = text.split('\n')
+    # strip all spaces from the first line
+    if lines[0]:
+      num_spaces = 0
+      while lines[0][num_spaces] == ' ':
+        num_spaces += 1
+      lines[0] = lines[0][num_spaces:]
+    # strip the same number as line 2 from the rest
+    if len(lines) > 1:
+      if lines[1]:
+        num_spaces = 0
+        while lines[1][num_spaces] == ' ':
+          num_spaces += 1
+        first_line = lines[0]
+        lines = [t[num_spaces:] for t in lines]
+        lines[0] = first_line
+    text = '\n'.join(lines)
+    # run the code we have
+    new_context = context.copy()
+    output = StringIO.StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = output 
+    exec text in new_context
+    sys.stdout = old_stdout
+    return output.getvalue()
 
   # Note: We could do this by escaping all the HTML and sticking
   # "print" in front of it, this works great in languages that aren't python
@@ -349,19 +371,25 @@ def run_python_html(code, context, document_name):
   return soup.prettify()
 
 
-def pages_from_datafiles(directory, src_base, dest_base, context):
+def pages_from_datafiles(context, directory=None):
   """ find .data files interpret them and output .html to destination.
 
   find <python> </python> tags in the HTML and pull out the code.
   Run the code and capture the output from stdout
   output the original HTML code with python tags replaced by their output.
 
+  uses globals:
+    curdir: current directory
+    src_base: base of the source hierarchy
+    dest_base: base of the destination hierarchy
+
   directory -- directory to search for files in
-  src_base -- base of the source hierarchy
-  dest_base -- base of the destination hierarchy
   context -- context to *copy* to then run these in
   Returns: None
   """
+  global curdir
+  if directory is None:
+    directory = curdir 
   if directory == '':
     directory = '.'
   directory = os.path.relpath(directory, src_base)
@@ -384,15 +412,15 @@ def pages_from_datafiles(directory, src_base, dest_base, context):
     dump_file(os.path.join(dest_path, f_name[:-5]+'.html'), data)
 
 
-def run_file(srcfile, src_base, dest_base, context):
+def run_python_file(context, srcfile):
   """ Run a python file.
 
+  Note - this depends on global variables! 
+    curdir
+    src_base 
+    dest_base
 
-  Note - this depends on and modifies global variables! 
-    curdir (changed)
-    src_base (used)
-    dest_base (used)
- 
+  context -- context in which the file will be run
   srcfile -- source file to run.
   Returns: None
   """
@@ -405,13 +433,17 @@ def run_file(srcfile, src_base, dest_base, context):
   new_context['htmlgen'].curdir = os.path.relpath(os.path.dirname(srcfile), src_base)
   execfile(srcfile, new_context)
 
-def run_make_subdirs(directory, src_base, dest_base, context):
+def run_make_subdirs(context, directory=None, exclude_patterns=None):
   """ Runs python make.py in all subdirectories.
     
   directory -- directory to look in for subdirectories with makefiles.
   Returns: None
   """
-  for subdir in listdir(directory):
+  global curdir
+  if directory is None:
+    directory = curdir
+  ld = listdir(directory, exclude_patterns=exclude_patterns)
+  for subdir in ld:
     if not os.path.isdir(subdir):
       continue
-    run_file(os.path.join(subdir, 'make.py'), src_base, dest_base, context)
+    run_python_file(context, os.path.join(subdir, 'make.py'))
