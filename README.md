@@ -20,12 +20,12 @@ Your root "make.py" file should look something like this:
 import htmlgen
 
 htmlgen.init(sys.argv)
-htmlgen.clean(htmlgen.dest_base, htmlgen.dest_source) # see docs to understand the order here
-htmlgen.pages_from_datafiles(htmlgen.curdir, htmlgen.src_base, htmlgen.dest_base, globals())
-htmlgen.run_make_subdirs(htmlgen.curdir, htmlgen.src_base, htmlgen.dest_base, globals())
+htmlgen.clean()
+htmlgen.pages_from_datafiles(globals())
+htmlgen.run_make_subdirs(globals())
 
-The other make.py files should generally look like this, but only the last two lines. Of course, you may want to do something much more interesting in your make.py files occasionally (I do). This is just the default setup that will interpret .data files through your hierarchy.
+The other make.py files should generally look like this, but only the last two lines. Of course, you may want to do something much more interesting in your make.py files occasionally (I do). for example using the simple_index() function. This is just the default setup that will interpret .data files through your hierarchy.
 
-For more details on exact use etc. see htmlgen.py
+For more details on exact use etc. see htmlgen.py docstrings
 
 
