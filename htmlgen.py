@@ -65,7 +65,7 @@ def init(argv, rel_dest_dir='../website'):
   # they are in.
   src_base = os.getcwd()
   # Assume we're writing to the directory below this one
-  dest_base = os.path.join(os.getcwd(), rel_dest_dir)
+  dest_base = os.path.normpath(os.path.join(os.getcwd(), rel_dest_dir))
   # This will be overridden at each file layer to be the current files dir
   curdir = '.'
   print '*** Initializing htmlgen ***'
@@ -198,6 +198,7 @@ def symlink_files(src_path, dest_path):
   dest_path -- the path of the destination path to place symlinks in
   Returns: None
   """
+  print('symlink files', src_path, dest_path)
   # Create the directory if it doesn't exist
   src_path = os.path.normpath(src_path)
   dest_path = os.path.normpath(dest_path)
@@ -219,6 +220,7 @@ def symlink_files(src_path, dest_path):
       continue
     # copy would work too, this is easier in python for some reason
     # It's kindof nice for large files anyway
+    print('symlinking: ', os.path.join(src_path, f), os.path.join(dest_path, f))
     os.symlink(os.path.join(src_path, f), os.path.join(dest_path, f))
     set_perms(os.path.join(src_path, f))
     set_perms(os.path.join(dest_path, f))
