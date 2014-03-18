@@ -49,7 +49,12 @@ src_base = 'dummy'
 dest_base = 'dummy'
 curdir = 'dummy'
 
-def init(argv):
+def init(argv, rel_dest_dir='../website'):
+  """ Call before using other functions in this library.
+  
+  rel_dest_dir -- is the destination directory relative to the binary being run.
+  Returns: None
+  """
   global src_base 
   global dest_base
   global curdir
@@ -60,7 +65,7 @@ def init(argv):
   # they are in.
   src_base = os.getcwd()
   # Assume we're writing to the directory below this one
-  dest_base = os.path.split(os.getcwd())[0] + '/public'
+  dest_base = os.path.join(os.getcwd(), rel_dest_dir)
   # This will be overridden at each file layer to be the current files dir
   curdir = '.'
   print '*** Initializing htmlgen ***'
