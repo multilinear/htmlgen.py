@@ -133,7 +133,6 @@ def set_perms(file):
   file -- The the file to set permissions on
   Returns: None
   """
-  os.chown(file, os.getuid(), web_group)
   if os.path.isdir(file):
     os.chmod(file, 0o775)
   else:
