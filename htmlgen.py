@@ -48,6 +48,7 @@ from bs4 import BeautifulSoup
 src_base = 'dummy'
 dest_base = 'dummy'
 curdir = 'dummy'
+web_group = 'www-data'
 
 def init(argv, rel_dest_dir='../website'):
   """ Call before using other functions in this library.
@@ -132,14 +133,11 @@ def set_perms(file):
   file -- The the file to set permissions on
   Returns: None
   """
-  try:
-    os.chown(file, os.getuid(), web_group)
-    if os.path.isdir(file):
-      os.chmod(file, 0o775)
-    else:
-      os.chmod(file, 0o664)
-  except:
-    pass
+  os.chown(file, os.getuid(), web_group)
+  if os.path.isdir(file):
+    os.chmod(file, 0o775)
+  else:
+    os.chmod(file, 0o664)
 
 
 def create_dest(curdir):
