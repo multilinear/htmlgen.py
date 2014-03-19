@@ -127,16 +127,19 @@ def clean(abspath=None, nodelete_abspath=None):
       os.rmdir(os.path.join(path, s))
 
 
-def set_perms(file):
+def add_perms(file):
   """ Sets the permissions for a file, so it's readable for serving etc.
  
   file -- The the file to set permissions on
   Returns: None
   """
+  def my_chmod(file, perm):
+    os.chmod(file, os.stat(file).st_mode | perm)
+
   if os.path.isdir(file):
-    os.chmod(file, 0o775)
+    my_chmod(file, 0o777)
   else:
-    os.chmod(file, 0o664)
+    my_chmod(file, 0o664)
 
 
 def create_dest(curdir):
@@ -201,7 +204,7 @@ def symlink_files(src_path, dest_path):
   dest_path = os.path.normpath(dest_path)
   try:
     os.makedirs(dest_path)
-    set_perms(dest_path)
+    add_perms(dest_path)
   except:
     pass
   files = listdir(src_path)
@@ -219,8 +222,8 @@ def symlink_files(src_path, dest_path):
     # It's kindof nice for large files anyway
     #print('symlinking: ', os.path.join(src_path, f), os.path.join(dest_path, f))
     os.symlink(os.path.join(src_path, f), os.path.join(dest_path, f))
-    set_perms(os.path.join(src_path, f))
-    set_perms(os.path.join(dest_path, f))
+    add_perms(os.path.join(src_path, f))
+    add_perms(os.path.join(dest_path, f))
 
 # This function can be used as the only line in a file
 # to index that directory and all below it
