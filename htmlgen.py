@@ -38,6 +38,7 @@ Dependencies:
 
 import errno
 import HTMLParser
+from xml.etree import ElementTree
 import os
 import re
 import sys
@@ -141,8 +142,10 @@ def add_perms(file):
   else:
     my_chmod(file, 0o664)
 
+def dest_from_src(srcdir) :
+  return os.path.join(dest_base, os.path.relpath(srcdir, src_base))
 
-def create_dest(curdir):
+def create_dest(srcdir):
   """ Create a destination directory to match a dir in the source tree.
   globals used:
     src_base: The source tree basepath
@@ -152,14 +155,11 @@ def create_dest(curdir):
     in the destination tree.
   Return: New destination directory
   """
-  dest_path = os.path.join(dest_base,
-      os.path.relpath(curdir, src_base))
   try:
-    os.makedirs(dest_path)
+    os.makedirs(dest_from_src(srcdir))
   except:
     pass
-  return dest_path
-
+  return dest_from_src(srcdir)
 
 def computeurl(cur_path_from_base, rel_link_path):
   """ Build a local link.
@@ -227,7 +227,7 @@ def symlink_files(src_path, dest_path):
 
 # This function can be used as the only line in a file
 # to index that directory and all below it
-def simple_index(gen_header, gen_footer, src_dirpath=None):
+def simple_index(gen_header, gen_footer, gen_title, src_dirpath=None):
   """ Build an index of a directory tree.
   globals used:
     curdir: directory to index (overriden by src_dirpath)
@@ -238,6 +238,7 @@ def simple_index(gen_header, gen_footer, src_dirpath=None):
     of the file. (takes title and path)
   gen_footer -- function outputing anything that should be added to the footer
     of the file. (takes title and path)
+  gen_title -- function for formatting the title, (take title and date, date may be empty)
   src_dirpath -- directory to build the tree in.
   Returns: None 
   """
@@ -271,7 +272,7 @@ def simple_index(gen_header, gen_footer, src_dirpath=None):
     entries = [computeurl('.', f) for f in entries if f != 'make.py']
     # and output it
     data = []
-    data += [gen_header(title, rel_path)]
+    data += [gen_header(title, rel_path), gen_title(title,'')]
     data += ['<ul>']
     for entry in entries:
       data += ['<li> <a href=' + entry + '>']
@@ -374,7 +375,7 @@ def run_python_html(code, context, document_name):
 
   parser = MyHTMLParser(context, document_name)
   parser.feed(code) 
-  soup = BeautifulSoup(parser.get_result())
+  soup = BeautifulSoup(parser.get_result(), "lxml")
   return soup.prettify()
 
 
@@ -417,6 +418,114 @@ def pages_from_datafiles(context, directory=None):
       pass
     data = run_python_html(f.read(), context, src_f_path)
     dump_file(os.path.join(dest_path, f_name[:-5]+'.html'), data)
+
+def bloglist_from_files(directory=None):
+  """ find .blog files interpret them output .html to destination AND index
+
+  find <python> </python> tags in the HTML and pull out the code.
+  Run the code and capture the output from stdout
+  output the original HTML code with python tags replaced by their output.
+
+  uses globals:
+    curdir: current directory
+    src_base: base of the source hierarchy
+    dest_base: base of the destination hierarchy
+
+  context -- context to *copy* to then run these in
+  directory -- directory to search for files in
+  Returns: None
+  """
+  global curdir
+  global src_base
+  if directory is None:
+    directory = curdir 
+  if directory == '':
+    directory = '.'
+  directory = os.path.relpath(directory, src_base)
+  src_path = os.path.join(src_base, directory)
+  dest_path = os.path.join(dest_base, directory)
+  rel_path = os.path.relpath(src_path, src_base)
+  title = src_path.split('/')[-1]
+  l = listdir(src_path)
+  # first pass, generate the post list
+  post_list=[]
+  for src_f_path in l:
+    if os.path.isdir(src_f_path):
+      continue
+    f_name = os.path.basename(src_f_path)
+    if f_name[-5:] != '.blog':
+      continue
+    post_list.append({
+        'path': src_f_path,
+        'file': f_name,
+        'title': f_name[:-5].split('_')[0],
+        'date': f_name[:-5].split('_')[1],
+        'link': f_name[:-5]+'.html'
+    })
+  # sort the pages by date first
+  post_list.sort(lambda e1,e2: 1 if e1['date'] < e2['date'] else -1) 
+  return post_list
+
+def bloglist_ammend_data(blog_list, context):
+  for (i,e) in enumerate(blog_list):
+    f = open(e['path'])
+    e['data'] = run_python_html(f.read(), context, e['path'])
+
+def bloglist_dump_rss(blog_title, desc, post_list, gen_title, directory=None):
+  global curdir
+  global src_base
+  if directory is None:
+    directory = curdir 
+  if directory == '':
+    directory = '.'
+  directory = os.path.relpath(directory, src_base)
+  src_path = os.path.join(src_base, directory)
+  dest_path = create_dest(src_path)
+  rel_path = os.path.relpath(src_path, src_base)
+  try:
+    os.makedirs(dest_path)
+  except:
+    pass
+  root = ElementTree.Element('xml')
+  root.set('version','1.0')
+  rss = ElementTree.SubElement(root, 'rss')
+  rss.set('version','2.0')
+  channel = ElementTree.SubElement(rss, 'channel')
+  title = ElementTree.SubElement(channel, 'title')
+  title.text = blog_title
+  link = ElementTree.SubElement(channel, 'link')
+  link.text = src_base
+  description = ElementTree.SubElement(channel, 'description')
+  description.text = desc
+  for e in post_list:
+    item = ElementTree.SubElement(channel, 'item') 
+    title = ElementTree.SubElement(item, 'title')
+    title.text = e['title']
+    link = ElementTree.SubElement(item, 'link')
+    link.text = e['link']
+    pubDate = ElementTree.SubElement(item, 'pubDate')
+    pubDate.text = e['date']
+    enclosure = ElementTree.SubElement(item, 'enclosure')
+    enclosure.text = e['data']
+  fname = os.path.join(dest_path, 'rss.xml')
+  dump_file(fname, ElementTree.tostring(root))
+
+def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=None):
+  if directory is None:
+    directory = curdir 
+  if directory == '':
+    directory = '.'
+  directory = os.path.relpath(directory, src_base)
+  src_path = os.path.join(src_base, directory)
+  create_dest(src_path)
+  dest_path = dest_from_src(src_path)
+  rel_path = os.path.relpath(src_path, src_base)
+  for (i,e) in enumerate(blog_list):
+    file_data = [gen_header(e['title'], rel_path)]
+    file_data.append(gen_title(e['title'],''))
+    file_data.append(e['data'])
+    file_data.append(gen_footer(e['title'], rel_path, blog_list))
+    dump_file(os.path.join(dest_path, e['link']), '\n'.join(file_data))
 
 
 def run_python_file(context, srcfile):
