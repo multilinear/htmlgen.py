@@ -37,14 +37,16 @@ Dependencies:
 """
 
 import errno
+from datetime import datetime
+from dateutil import parser
 import HTMLParser
-from xml.etree import ElementTree
 import os
 import re
 import sys
 import StringIO
 import time
 from bs4 import BeautifulSoup
+from xml.etree import ElementTree
 
 src_base = 'dummy'
 dest_base = 'dummy'
@@ -471,7 +473,7 @@ def bloglist_ammend_data(blog_list, context):
     f = open(e['path'])
     e['data'] = run_python_html(f.read(), context, e['path'])
 
-def bloglist_dump_rss(blog_title, desc, post_list, gen_title, directory=None):
+def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directory=None):
   global curdir
   global src_base
   if directory is None:
@@ -486,15 +488,13 @@ def bloglist_dump_rss(blog_title, desc, post_list, gen_title, directory=None):
     os.makedirs(dest_path)
   except:
     pass
-  root = ElementTree.Element('xml')
-  root.set('version','1.0')
-  rss = ElementTree.SubElement(root, 'rss')
+  rss = ElementTree.Element('rss')
   rss.set('version','2.0')
   channel = ElementTree.SubElement(rss, 'channel')
   title = ElementTree.SubElement(channel, 'title')
   title.text = blog_title
   link = ElementTree.SubElement(channel, 'link')
-  link.text = src_base
+  link.text = site_link
   description = ElementTree.SubElement(channel, 'description')
   description.text = desc
   for e in post_list:
@@ -504,11 +504,12 @@ def bloglist_dump_rss(blog_title, desc, post_list, gen_title, directory=None):
     link = ElementTree.SubElement(item, 'link')
     link.text = e['link']
     pubDate = ElementTree.SubElement(item, 'pubDate')
-    pubDate.text = e['date']
+    dt = parser.parse(e['date'])
+    pubDate.text = dt.strftime('%a, %d %b %Y %H:%M:%S %z')
     enclosure = ElementTree.SubElement(item, 'enclosure')
     enclosure.text = e['data']
   fname = os.path.join(dest_path, 'rss.xml')
-  dump_file(fname, ElementTree.tostring(root))
+  dump_file(fname, ElementTree.tostring(rss, encoding='utf8', method='xml'))
 
 def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=None):
   if directory is None:
