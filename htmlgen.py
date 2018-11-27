@@ -1,5 +1,5 @@
 #!/usr/bin/python2.7
-
+# -*- coding: utf-8 -*-
 """
 This library is designed for lightweight generation of website content.
 
@@ -47,6 +47,7 @@ import StringIO
 import time
 from bs4 import BeautifulSoup
 from xml.etree import ElementTree
+import codecs
 
 src_base = 'dummy'
 dest_base = 'dummy'
@@ -72,10 +73,10 @@ def init(argv, rel_dest_dir='../website'):
   dest_base = os.path.normpath(os.path.join(os.getcwd(), rel_dest_dir))
   # This will be overridden at each file layer to be the current files dir
   curdir = '.'
-  print '*** Initializing htmlgen ***'
-  print 'curdir:', curdir
-  print 'src_base:', src_base
-  print 'dest_base:', dest_base
+  print('*** Initializing htmlgen ***')
+  print('curdir:', curdir)
+  print('src_base:', src_base)
+  print('dest_base:', dest_base)
 
 
 ### Some utility functions 
@@ -111,7 +112,7 @@ def clean(abspath=None, nodelete_abspath=None):
     abspath = dest_base
   if nodelete_abspath is None:
     nodelete_abspath = src_base
-  print 'Cleaning', abspath, nodelete_abspath
+  print('Cleaning', abspath, nodelete_abspath)
   for tuple in os.walk(abspath, topdown=False):  
     (path, subdirs, files) = tuple
     # if our source directory is a prefix, we're looking at a source file
@@ -189,8 +190,9 @@ def dump_file(dest_path, data):
   Returns: None
   """
   # And dump the content to the suggested file
-  f = open(os.path.join(dest_path), mode='w')
-  f.write(data)
+  print 'dumping file', dest_path
+  f = open(dest_path, 'w')
+  f.write(data.replace(u'\xa0',u' '))
 
 
 def symlink_files(src_path, dest_path):
@@ -250,7 +252,7 @@ def simple_index(gen_header, gen_footer, gen_title, src_dirpath=None):
   if src_dirpath is None:
     src_dirpath = curdir
   src_dirpath = os.path.join(src_base, src_dirpath)
-  print 'simple_index', src_dirpath
+  print('simple_index', src_dirpath)
   rel_path = os.path.relpath(src_dirpath, src_base)
   dest_dirpath = os.path.join(dest_base, rel_path)
   os.makedirs(dest_dirpath)
@@ -285,7 +287,6 @@ def simple_index(gen_header, gen_footer, gen_title, src_dirpath=None):
       data += ['</a> </li>'] 
     data += ['</ul>']
     data += [gen_footer(title, rel_path)]
-    print 'dumping to', os.path.join(dest_path, 'index.html')
     dump_file(os.path.join(dest_path, 'index.html'), '\n'.join(data))
 
 
@@ -322,7 +323,7 @@ def run_python_html(code, context, document_name):
     output = StringIO.StringIO()
     old_stdout = sys.stdout
     sys.stdout = output 
-    exec text in new_context
+    exec(text, new_context)
     sys.stdout = old_stdout
     return output.getvalue()
 
@@ -336,7 +337,7 @@ def run_python_html(code, context, document_name):
       HTMLParser.HTMLParser.__init__(self)
       self._in_pytag = False
       self._code = ''
-      self._result = ''
+      self._result = u''
       self._context = context
       self._document = document
 
@@ -348,7 +349,7 @@ def run_python_html(code, context, document_name):
           attr_string = ' '.join(l + '="' + v + '"' for (l,v) in attrs)
           string = '<' + tag + ' ' + attr_string + '>'
         except:
-          print 'ERROR:', self._document, 'Position:', self.getpos(), 'TAG:', tag
+          print('ERROR:', self._document, 'Position:', self.getpos(), 'TAG:', tag)
           string = ''
         if self._in_pytag:
           self._code += string
@@ -374,10 +375,11 @@ def run_python_html(code, context, document_name):
 
     def get_result(self):
       return self._result
-
   parser = MyHTMLParser(context, document_name)
   parser.feed(code) 
-  soup = BeautifulSoup(parser.get_result(), "lxml")
+  soup = BeautifulSoup(parser.get_result(), "lxml", from_encoding='utf8')
+  soup.html.unwrap()
+  soup.body.unwrap()
   return soup.prettify()
 
 
@@ -418,7 +420,8 @@ def pages_from_datafiles(context, directory=None):
       os.makedirs(dest_path)
     except:
       pass
-    data = run_python_html(f.read(), context, src_f_path)
+    print 'processing file:', f_name
+    data = run_python_html(f.read().encode('utf-8'), context, src_f_path)
     dump_file(os.path.join(dest_path, f_name[:-5]+'.html'), data)
 
 def bloglist_from_files(directory=None):
@@ -460,8 +463,8 @@ def bloglist_from_files(directory=None):
     post_list.append({
         'path': src_f_path,
         'file': f_name,
-        'title': f_name[:-5].split('_')[0],
-        'date': f_name[:-5].split('_')[1],
+        'title': f_name[:-5].split('_')[1],
+        'date': f_name[:-5].split('_')[0],
         'link': f_name[:-5]+'.html'
     })
   # sort the pages by date first
@@ -470,8 +473,9 @@ def bloglist_from_files(directory=None):
 
 def bloglist_ammend_data(blog_list, context):
   for (i,e) in enumerate(blog_list):
-    f = open(e['path'])
-    e['data'] = run_python_html(f.read(), context, e['path'])
+    f = open(e['path'], 'r')
+    us = f.read().decode('utf-8', 'replace')
+    e['data'] = run_python_html(us, context, e['path'])
 
 def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directory=None):
   global curdir
@@ -509,7 +513,7 @@ def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directo
     enclosure = ElementTree.SubElement(item, 'enclosure')
     enclosure.text = e['data']
   fname = os.path.join(dest_path, 'rss.xml')
-  dump_file(fname, ElementTree.tostring(rss, encoding='utf8', method='xml'))
+  dump_file(fname, ElementTree.tostring(rss, method='xml'))
 
 def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=None):
   if directory is None:
@@ -523,9 +527,9 @@ def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=
   rel_path = os.path.relpath(src_path, src_base)
   for (i,e) in enumerate(blog_list):
     file_data = [gen_header(e['title'], rel_path)]
-    file_data.append(gen_title(e['title'],''))
+    file_data.append(gen_title(e['title'],e['date'],e['link']))
     file_data.append(e['data'])
-    file_data.append(gen_footer(e['title'], rel_path, blog_list))
+    file_data.append(gen_footer(e['title'], rel_path))
     dump_file(os.path.join(dest_path, e['link']), '\n'.join(file_data))
 
 
