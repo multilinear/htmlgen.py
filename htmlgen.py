@@ -47,7 +47,7 @@ import StringIO
 import time
 from bs4 import BeautifulSoup
 from xml.etree import ElementTree
-import codecs
+import math
 
 src_base = 'dummy'
 dest_base = 'dummy'
@@ -130,7 +130,6 @@ def clean(abspath=None, nodelete_abspath=None):
         continue
       os.rmdir(os.path.join(path, s))
 
-
 def add_perms(file):
   """ Sets the permissions for a file, so it's readable for serving etc.
  
@@ -182,7 +181,6 @@ def computeurl(cur_path_from_base, rel_link_path):
   filename.append(rel_link_path)
   return '/'.join(filename)
 
-
 def dump_file(dest_path, data):
   """ Output a file.
   dest_path -- destination to write to.
@@ -193,7 +191,6 @@ def dump_file(dest_path, data):
   print 'dumping file', dest_path
   f = open(dest_path, 'w')
   f.write(data.replace(u'\xa0',u' '))
-
 
 def symlink_files(src_path, dest_path):
   """ symlink files in dest_path to src_path.
@@ -228,67 +225,6 @@ def symlink_files(src_path, dest_path):
     os.symlink(os.path.join(src_path, f), os.path.join(dest_path, f))
     add_perms(os.path.join(src_path, f))
     add_perms(os.path.join(dest_path, f))
-
-# This function can be used as the only line in a file
-# to index that directory and all below it
-def simple_index(gen_header, gen_footer, gen_title, src_dirpath=None):
-  """ Build an index of a directory tree.
-  globals used:
-    curdir: directory to index (overriden by src_dirpath)
-    src_base: base of the source hieararchy.
-    dest_base: base of the destination hieararchy.
-  
-  gen_header -- function outputing anything that should be added to the header
-    of the file. (takes title and path)
-  gen_footer -- function outputing anything that should be added to the footer
-    of the file. (takes title and path)
-  gen_title -- function for formatting the title, (take title and date, date may be empty)
-  src_dirpath -- directory to build the tree in.
-  Returns: None 
-  """
-  global curdir
-  global src_base
-  global dest_base
-  if src_dirpath is None:
-    src_dirpath = curdir
-  src_dirpath = os.path.join(src_base, src_dirpath)
-  print('simple_index', src_dirpath)
-  rel_path = os.path.relpath(src_dirpath, src_base)
-  dest_dirpath = os.path.join(dest_base, rel_path)
-  os.makedirs(dest_dirpath)
-  # Walk subdirectories
-  # symlink the files
-  # create the directories
-  # and build index.html files for each dir
-  for tup in os.walk(src_dirpath, topdown=True):
-    (src_path, subdirs, files) = tup
-    # Create the directory 
-    rel_path = os.path.relpath(src_path, src_base)
-    dest_path = os.path.join(dest_base, rel_path)
-    # title is just the directory name
-    title = src_path.split('/')[-1]
-    # Index the directories and files
-    symlink_files(src_path, dest_path)
-    subdirs.sort()
-    files.sort()
-    entries = subdirs + files
-    # get the urls for those files
-    entries = [computeurl('.', f) for f in entries if f != 'make.py']
-    # and output it
-    data = []
-    data += [gen_header(title, rel_path), gen_title(title,'')]
-    data += ['<ul>']
-    for entry in entries:
-      data += ['<li> <a href=' + entry + '>']
-      if entry in subdirs:
-        data += ['<strong>' + entry + '</strong>']
-      else:
-         data += [entry]
-      data += ['</a> </li>'] 
-    data += ['</ul>']
-    data += [gen_footer(title, rel_path)]
-    dump_file(os.path.join(dest_path, 'index.html'), '\n'.join(data))
-
 
 def run_python_html(code, context, document_name):
   """ Run <python> tags and compile the result into an HTML string.
@@ -382,7 +318,7 @@ def run_python_html(code, context, document_name):
   soup.body.unwrap()
   return soup.prettify()
 
-
+### Basic website building stuff
 def pages_from_datafiles(context, directory=None):
   """ find .data files interpret them and output .html to destination.
 
@@ -424,21 +360,79 @@ def pages_from_datafiles(context, directory=None):
     data = run_python_html(f.read().encode('utf-8'), context, src_f_path)
     dump_file(os.path.join(dest_path, f_name[:-5]+'.html'), data)
 
-def bloglist_from_files(directory=None):
-  """ find .blog files interpret them output .html to destination AND index
+def simple_index(gen_header, gen_footer, gen_title, src_dirpath=None):
+  """ Build an index of a directory tree. Can be used as the only line
+  in a file to index that directory and all below it.
+  globals used:
+    curdir: directory to index (overriden by src_dirpath)
+    src_base: base of the source hieararchy.
+    dest_base: base of the destination hieararchy.
+  
+  gen_header -- function outputing anything that should be added to the header
+    of the file. (takes title and path)
+  gen_footer -- function outputing anything that should be added to the footer
+    of the file. (takes title and path)
+  gen_title -- function for formatting the title, (take title and date, date may be empty)
+  src_dirpath -- directory to build the tree in.
+  Returns: None 
+  """
+  global curdir
+  global src_base
+  global dest_base
+  if src_dirpath is None:
+    src_dirpath = curdir
+  src_dirpath = os.path.join(src_base, src_dirpath)
+  print('simple_index', src_dirpath)
+  rel_path = os.path.relpath(src_dirpath, src_base)
+  dest_dirpath = os.path.join(dest_base, rel_path)
+  os.makedirs(dest_dirpath)
+  # Walk subdirectories
+  # symlink the files
+  # create the directories
+  # and build index.html files for each dir
+  for tup in os.walk(src_dirpath, topdown=True):
+    (src_path, subdirs, files) = tup
+    # Create the directory 
+    rel_path = os.path.relpath(src_path, src_base)
+    dest_path = os.path.join(dest_base, rel_path)
+    # title is just the directory name
+    title = src_path.split('/')[-1]
+    # Index the directories and files
+    symlink_files(src_path, dest_path)
+    subdirs.sort()
+    files.sort()
+    entries = subdirs + files
+    # get the urls for those files
+    entries = [computeurl('.', f) for f in entries if f != 'make.py']
+    # and output it
+    data = []
+    data += [gen_header(title, rel_path), gen_title(title,'')]
+    data += ['<ul>']
+    for entry in entries:
+      data += ['<li> <a href=' + entry + '>']
+      if entry in subdirs:
+        data += ['<strong>' + entry + '</strong>']
+      else:
+         data += [entry]
+      data += ['</a> </li>'] 
+    data += ['</ul>']
+    data += [gen_footer(title, rel_path)]
+    dump_file(os.path.join(dest_path, 'index.html'), '\n'.join(data))
 
-  find <python> </python> tags in the HTML and pull out the code.
-  Run the code and capture the output from stdout
-  output the original HTML code with python tags replaced by their output.
+
+# Blog generation stuff
+def bloglist_from_files(directory=None):
+  """ find .blog files interpret them, returns a list of dictionaries
+  With metadata about each file. Does NOT read content, for content see
+  bloglist_dump_blog, bloglist_dump_posts and bloglist_dump_rss.
 
   uses globals:
     curdir: current directory
     src_base: base of the source hierarchy
     dest_base: base of the destination hierarchy
 
-  context -- context to *copy* to then run these in
   directory -- directory to search for files in
-  Returns: None
+  Returns: a list of dictionaries containing metadata about each blogpost
   """
   global curdir
   global src_base
@@ -472,12 +466,47 @@ def bloglist_from_files(directory=None):
   return post_list
 
 def bloglist_ammend_data(blog_list, context):
+  """ using blog_list (as output by bloglist_from_files) read the contents
+  of all of the files and dump it in to the 'data' field of each entry
+  in the bloglist. .blog files are interpreted much like datafiles, see
+  pages_from_datafiles().
+  Note that on very large blogs this loads the *entire* of the blog in to
+  memory.
+  
+  uses globals:
+    curdir: current directory
+    src_base: base of the source hierarchy
+    dest_base: base of the destination hierarchy
+
+  blog_list -- list of dicts as returned by bloglist_from_pages
+  context -- context to *copy* to then run the <python> tags in
+  Returns: None
+  """
   for (i,e) in enumerate(blog_list):
     f = open(e['path'], 'r')
     us = f.read().decode('utf-8', 'replace')
     e['data'] = run_python_html(us, context, e['path'])
 
 def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directory=None):
+  """ Using blog_list (as output by bloglist_from_files and ammend by bloglist_ammend_data)
+  this generates an rss.xml file for your RSS feed. You can then link this file in your
+  header and users will be able to use RSS readers to follow your blog. Note that this
+  publishes ALL your content in the feed, not just a link.
+
+  Note that you may want pass the first slice of the blog_list. Usually an rss feed
+  only includes the last several posts, not the entire blog for all history.
+
+  uses globals:
+    curdir: current directory
+    src_base: base of the source hierarchy
+    dest_base: base of the destination hierarchy
+
+  site_link -- URL of your blog
+  blog_title -- the title of your blog
+  desc -- a description of your blog
+  gen_title -- A function taking a post's title and outputting an HTML string prepended to the post
+  directory -- In case you want to write it to a weird place. Defaults to local
+  """
   global curdir
   global src_base
   if directory is None:
@@ -516,6 +545,23 @@ def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directo
   dump_file(fname, ElementTree.tostring(rss, method='xml'))
 
 def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=None):
+  """ Dumps pages for each individual post in your blog. This allows for post-specific links.
+  uses information stored in blog_list, as generated by bloglist_from_files() and bloglist_ammend_data()
+  Content is processed like data_from_pages(), with the results of gen_header, gen_title and gen_footer
+  attached
+
+  uses globals:
+    curdir: current directory
+    src_base: base of the source hierarchy
+    dest_base: base of the destination hierarchy
+
+  gen_header -- takes a title and a path to the page (used for relative links)
+  gen_footer -- takes a title and a path to the page (used for relative links)
+  gen_title -- takes a title a date and an optional link
+  blog_list -- as generated by bloglist_from_files() and ammended by bloglist_ammend_data()
+  directory -- directory to process, defaults to local
+  Returns: None
+  """
   if directory is None:
     directory = curdir 
   if directory == '':
@@ -532,7 +578,71 @@ def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=
     file_data.append(gen_footer(e['title'], rel_path))
     dump_file(os.path.join(dest_path, e['link']), '\n'.join(file_data))
 
+def bloglist_dump_blog(gen_header, gen_footer, gen_title, blog_list):
+  """ Dumps the main blog pages
+  Using the data from blog_list this concatonates all the posts together
+  with pagination every so often.  The first (most recent) page will be named 
+  index.html, and the rest indexI.html where I is the index of that page.
 
+  This basically generates a half-reasonable blog format. Though it is not unlikely
+  that you'll want to rewrite some component of it as it makes actual design decisions
+  for you. It's been included as the author found himself copying this code between
+  projects.
+
+  uses globals:
+    curdir: current directory
+    src_base: base of the source hierarchy
+    dest_base: base of the destination hierarchy
+
+  gen_header -- takes a title and a path to the page (used for relative links)
+  gen_footer -- takes a title and a path to the page (used for relative links)
+  gen_title -- takes a title a date and an optional link
+  blog_list -- as generated by bloglist_from_files() and ammended by bloglist_ammend_data()
+  returns: None
+  """
+  print('Now Generating Blog')
+  # Now generate the blog
+
+  def gen_nav_links(count, pages, jump):
+    nav='<div id=blog_nav>'
+    # prev
+    if (count == 0):
+      nav += '<div class=left_nav> newer posts </div>'
+    if (count == 1):
+      nav += '<a class=left_nav href=index.html> newer posts </a>'
+    elif (count != 0):
+      nav += '<a class=left_nav href=index'+str(count-1)+'.html> newer posts </a>'
+    # next
+    if (count+1 < pages):
+      nav += '<a class=right_nav href=index'+str(count+1)+'.html> older posts </a>'
+    else:  
+      nav += '<div class=right_nav> older posts </div>'
+    nav += '</div>'
+    return nav
+
+  # this is mostly pagination logic
+  fname = 'index.html'
+  count = 0
+  jump = 5
+  i = 0
+  pages = math.ceil(len(blog_list) / float(jump))
+  for i in range(0, len(blog_list), jump):
+    fname = os.path.join(dest_from_src(curdir), fname)
+    main_blog = [gen_header('blog', curdir)]
+    main_blog.append(gen_nav_links(count, pages, jump))
+    hr = ''
+    for e in blog_list[i:i+jump]:
+      main_blog.append(hr)
+      main_blog.append(gen_title(e['title'], parser.parse(e['date']).date().isoformat(), e['link']))
+      main_blog.append(e['data'])
+      hr = '<hr>'
+    main_blog.append(gen_nav_links(count, pages, jump))
+    main_blog.append(gen_footer('blog', curdir))
+    dump_file(fname ,'\n'.join(main_blog))
+    count += 1
+    fname='index'+str(count)+'.html'
+
+# Recursive stuff
 def run_python_file(context, srcfile):
   """ Run a python file.
 
@@ -568,3 +678,5 @@ def run_make_subdirs(context, directory=None, exclude_patterns=None):
     if not os.path.isdir(subdir):
       continue
     run_python_file(context, os.path.join(subdir, 'make.py'))
+
+
