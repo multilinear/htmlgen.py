@@ -1,5 +1,4 @@
-#!/usr/bin/python2.7
-# -*- coding: utf-8 -*-
+#!/usr/bin/python3
 """
 This library is designed for lightweight generation of website content.
 
@@ -39,11 +38,11 @@ Dependencies:
 import errno
 from datetime import datetime
 from dateutil import parser
-import HTMLParser
+from html.parser import HTMLParser
 import os
 import re
 import sys
-import StringIO
+from io import StringIO
 import time
 from bs4 import BeautifulSoup
 from xml.etree import ElementTree
@@ -188,9 +187,9 @@ def dump_file(dest_path, data):
   Returns: None
   """
   # And dump the content to the suggested file
-  print 'dumping file', dest_path
-  f = open(dest_path, 'w')
-  f.write(data.replace(u'\xa0',u' '))
+  print('dumping file', dest_path)
+  f = open(dest_path, 'w', encoding='utf-8')
+  f.write(data)
 
 def symlink_files(src_path, dest_path):
   """ symlink files in dest_path to src_path.
@@ -256,7 +255,7 @@ def run_python_html(code, context, document_name):
     text = '\n'.join(lines)
     # run the code we have
     new_context = context.copy()
-    output = StringIO.StringIO()
+    output = StringIO()
     old_stdout = sys.stdout
     sys.stdout = output 
     exec(text, new_context)
@@ -267,10 +266,10 @@ def run_python_html(code, context, document_name):
   # "print" in front of it, this works great in languages that aren't python
   # in python we don't use "}" for blocks, so we can't have loops across those
   # statements anyway - therefore there's no gain, and I wrote this first.
-  class MyHTMLParser(HTMLParser.HTMLParser):
+  class MyHTMLParser(HTMLParser):
 
     def __init__(self, context, document):
-      HTMLParser.HTMLParser.__init__(self)
+      HTMLParser.__init__(self)
       self._in_pytag = False
       self._code = ''
       self._result = u''
@@ -356,8 +355,8 @@ def pages_from_datafiles(context, directory=None):
       os.makedirs(dest_path)
     except:
       pass
-    print 'processing file:', f_name
-    data = run_python_html(f.read().encode('utf-8'), context, src_f_path)
+    print('processing file:', f_name)
+    data = run_python_html(f.read(), context, src_f_path)
     dump_file(os.path.join(dest_path, f_name[:-5]+'.html'), data)
 
 def simple_index(gen_header, gen_footer, gen_title, src_dirpath=None):
@@ -462,7 +461,7 @@ def bloglist_from_files(directory=None):
         'link': f_name[:-5]+'.html'
     })
   # sort the pages by date first
-  post_list.sort(lambda e1,e2: 1 if e1['date'] < e2['date'] else -1) 
+  post_list.sort(key=lambda e: e['date'])
   return post_list
 
 def bloglist_ammend_data(blog_list, context):
@@ -484,7 +483,7 @@ def bloglist_ammend_data(blog_list, context):
   """
   for (i,e) in enumerate(blog_list):
     f = open(e['path'], 'r')
-    us = f.read().decode('utf-8', 'replace')
+    us = f.read()
     e['data'] = run_python_html(us, context, e['path'])
 
 def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directory=None):
@@ -542,7 +541,7 @@ def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directo
     enclosure = ElementTree.SubElement(item, 'enclosure')
     enclosure.text = e['data']
   fname = os.path.join(dest_path, 'rss.xml')
-  dump_file(fname, ElementTree.tostring(rss, method='xml'))
+  dump_file(fname, ElementTree.tostring(rss, encoding='utf-8', method='xml').decode())
 
 def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=None):
   """ Dumps pages for each individual post in your blog. This allows for post-specific links.
@@ -662,7 +661,7 @@ def run_python_file(context, srcfile):
   new_context = context.copy()
   # give it the new directory path
   new_context['htmlgen'].curdir = os.path.relpath(os.path.dirname(srcfile), src_base)
-  execfile(srcfile, new_context)
+  exec(open(srcfile).read(), new_context)
 
 def run_make_subdirs(context, directory=None, exclude_patterns=None):
   """ Runs python make.py in all subdirectories.
