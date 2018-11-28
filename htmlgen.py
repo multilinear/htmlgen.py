@@ -461,7 +461,7 @@ def bloglist_from_files(directory=None):
         'link': f_name[:-5]+'.html'
     })
   # sort the pages by date first
-  post_list.sort(key=lambda e: e['date'])
+  post_list.sort(key=lambda e: e['date'], reverse=True)
   return post_list
 
 def bloglist_ammend_data(blog_list, context):
