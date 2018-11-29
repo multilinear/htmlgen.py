@@ -555,7 +555,7 @@ def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directo
     pubDate = ElementTree.SubElement(item, 'pubDate')
     dt = parser.parse(e['date'])
     pubDate.text = dt.strftime('%a, %d %b %Y %H:%M:%S %z')
-    enclosure = ElementTree.SubElement(item, 'enclosure')
+    enclosure = ElementTree.SubElement(item, 'description')
     enclosure.text = e['data']
   fname = os.path.join(dest_path, 'rss.xml')
   dump_file(fname, ElementTree.tostring(rss, encoding='utf-8', method='xml').decode())
