@@ -677,5 +677,6 @@ def run_make_subdirs(context, directory=None, exclude_patterns=None):
     if not os.path.isdir(subdir):
       continue
     run_python_file(context, os.path.join(subdir, 'make.py'))
-
+  curdir = directory
+  print('Done Running run_make_subdirs() in', directory)
 
