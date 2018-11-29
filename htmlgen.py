@@ -188,6 +188,11 @@ def dump_file(dest_path, data):
   """
   # And dump the content to the suggested file
   print('dumping file', dest_path)
+  try:
+    os.makedirs(os.path.dirname(dest_path))
+    add_perms(os.path.dirname(dest_path))
+  except:
+    pass
   f = open(dest_path, 'w', encoding='utf-8')
   f.write(data)
 
@@ -453,12 +458,24 @@ def bloglist_from_files(directory=None):
     f_name = os.path.basename(src_f_path)
     if f_name[-5:] != '.blog':
       continue
+    # Most of this munging is actually so URLs will match Blogger URLs
+    # this helps with migration so all your links to break
+    html_file = (f_name[:-5].split('_')[1].replace('.','')+'.html').lower()
+    html_file = html_file.replace(' a ', ' ')
+    # Yeah, this is horrible, but python doesn't have an "all symbols" regex anyway *shrug*
+    # If this was dynamic I'd be horrified (I'm still horrified), but it's static generation so...
+    html_file = html_file.replace(',','').replace(':','').replace(';','').replace('"','').replace('+','').replace('#','').replace('!','').replace('<','').replace('>','').replace('/','').replace('\\','').replace('[','').replace(']','').replace('|','')
+    html_file = html_file.replace(' ','-').replace('--','-')
+    dt = parser.parse(f_name[:-5].split('_')[0])
+    subdir = os.path.join(dt.strftime('%Y'),dt.strftime('%m'))
+    link = os.path.join(directory, subdir, html_file)
     post_list.append({
         'path': src_f_path,
-        'file': f_name,
+        'subdir': subdir,
+        'file': html_file,
         'title': f_name[:-5].split('_')[1],
         'date': f_name[:-5].split('_')[0],
-        'link': f_name[:-5]+'.html'
+        'link': link,
     })
   # sort the pages by date first
   post_list.sort(key=lambda e: e['date'], reverse=True)
@@ -534,7 +551,7 @@ def bloglist_dump_rss(site_link, blog_title, desc, post_list, gen_title, directo
     title = ElementTree.SubElement(item, 'title')
     title.text = e['title']
     link = ElementTree.SubElement(item, 'link')
-    link.text = e['link']
+    link.text = '/'.join([site_link, e['link']])
     pubDate = ElementTree.SubElement(item, 'pubDate')
     dt = parser.parse(e['date'])
     pubDate.text = dt.strftime('%a, %d %b %Y %H:%M:%S %z')
@@ -571,11 +588,13 @@ def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=
   dest_path = dest_from_src(src_path)
   rel_path = os.path.relpath(src_path, src_base)
   for (i,e) in enumerate(blog_list):
-    file_data = [gen_header(e['title'], rel_path)]
-    file_data.append(gen_title(e['title'],e['date'],e['link']))
+    new_rel_path = os.path.join(rel_path, e['subdir'])
+    new_dest_path = os.path.join(dest_path, e['subdir'])
+    file_data = [gen_header(e['title'], new_rel_path)]
+    file_data.append(gen_title(e['title'], parser.parse(e['date']).date().isoformat(), e['link'], new_rel_path))
     file_data.append(e['data'])
-    file_data.append(gen_footer(e['title'], rel_path))
-    dump_file(os.path.join(dest_path, e['link']), '\n'.join(file_data))
+    file_data.append(gen_footer(e['title'], new_rel_path))
+    dump_file(os.path.join(new_dest_path, e['file']), '\n'.join(file_data))
 
 def bloglist_dump_blog(gen_header, gen_footer, gen_title, blog_list):
   """ Dumps the main blog pages
@@ -632,7 +651,8 @@ def bloglist_dump_blog(gen_header, gen_footer, gen_title, blog_list):
     hr = ''
     for e in blog_list[i:i+jump]:
       main_blog.append(hr)
-      main_blog.append(gen_title(e['title'], parser.parse(e['date']).date().isoformat(), e['link']))
+      path = os.path.join(curdir, e['subdir'])
+      main_blog.append(gen_title(e['title'], parser.parse(e['date']).date().isoformat(), e['link'], curdir))
       main_blog.append(e['data'])
       hr = '<hr>'
     main_blog.append(gen_nav_links(count, pages, jump))
