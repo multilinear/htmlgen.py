@@ -31,3 +31,9 @@ For more details on exact use etc. see htmlgen.py docstrings
 This library also contains 2 other scripts:
 - google_to_blog.py is a script I used to convert the XML files I downloaded from google in to my blog when moving off blogger. It's not flawless (for example, it finds drafts, not just published content), but you may find it useful.
 - new_blog_post.sh is a trivial shell script that, given a blog title will generate the file containing it using the current time as the time as the "posted" time. I use this to start a new blog post.
+
+Known Flaws:
+Path handling is a disaster. It's grown organically as I've expanded the
+library, and it needs a major overhaul. I appolagize for the complex uses of
+htmlgen.computeurl required *everywhere*, it's the cause of a lot of bugs in
+final websites.
