@@ -175,8 +175,9 @@ def computeurl(cur_path_from_base, rel_link_path):
   Return: a link to rel_link_path for use in a <a> tag
   """
   filename = []
-  if cur_path_from_base != '.':
-    filename = ['..' for t in cur_path_from_base.split('/')]
+  for d in cur_path_from_base.split('/'):
+    if d != '.':
+      filename.append('..')
   filename.append(rel_link_path)
   return '/'.join(filename)
 
@@ -448,7 +449,6 @@ def bloglist_from_files(directory=None):
   src_path = os.path.join(src_base, directory)
   dest_path = os.path.join(dest_base, directory)
   rel_path = os.path.relpath(src_path, src_base)
-  title = src_path.split('/')[-1]
   l = listdir(src_path)
   # first pass, generate the post list
   post_list=[]
@@ -590,6 +590,7 @@ def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=
   for (i,e) in enumerate(blog_list):
     new_rel_path = os.path.join(rel_path, e['subdir'])
     new_dest_path = os.path.join(dest_path, e['subdir'])
+    print('new_rel_path = ', new_rel_path, computeurl(new_rel_path, 'css/styles.css'))
     file_data = [gen_header(e['title'], new_rel_path)]
     file_data.append(gen_title(e['title'], parser.parse(e['date']).date().isoformat(), e['link'], new_rel_path))
     file_data.append(e['data'])
