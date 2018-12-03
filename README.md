@@ -78,4 +78,4 @@ I use this library by writing "def gen_header(title, path)" in my top make.py. T
 This library also contains 2 other scripts:
 - google_to_blog.py is a script I used to convert the XML files I downloaded from google in to my blog when moving off blogger. It's not flawless (for example, it finds drafts, not just published content), but you may find it useful.
 - new_blog_post.sh is a trivial shell script that, given a blog title will generate the file containing it using the current time as the time as the "posted" time. I use this to start a new blog post.
-
+- extract_flickr_ids.py is a script I wrote to pull flickr ids out of all of my blog posts. This way I could identify which images are being used so I could potentially migrate off flickr (I actually deleted everything *else* on flickr instead, at least for now). Like google_to_blog.py, if you're migrating your blog this may be useful.
