@@ -26,6 +26,10 @@ for e in root.iter('{http://www.w3.org/2005/Atom}entry'):
     continue
   date = date_object.text
   title = title_object.text
+  title = title.replace('/','_')
+  title = title.replace('?','')
+  title = title.replace('*','')
+  title = title.replace('&','and')
   print 'found post', title, 'published', date 
   f = open(date + '_' + title + '.blog', 'w')
   soup = bs(content_object.text, from_encoding='utf8', features='lxml')
