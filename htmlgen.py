@@ -103,8 +103,9 @@ def clean(abspath=None, nodelete_abspath=None):
     dest_base: default for abspath
 
   abspath -- The path of the directory under which everything will be deleted.
+    Defaults to dest_path.
   nodelete_abspath -- a path that may be below "path" which should not be
-      deleted
+      deleted. Defaults to nothing.
   Returns: None 
   """
   if abspath is None:
@@ -129,19 +130,19 @@ def clean(abspath=None, nodelete_abspath=None):
         continue
       os.rmdir(os.path.join(path, s))
 
-def add_perms(file):
+def add_perms(filename):
   """ Sets the permissions for a file, so it's readable for serving etc.
  
   file -- The the file to set permissions on
   Returns: None
   """
-  def my_chmod(file, perm):
-    os.chmod(file, os.stat(file).st_mode | perm)
+  def my_chmod(filename, perm):
+    os.chmod(filename, os.stat(filename).st_mode | perm)
 
-  if os.path.isdir(file):
-    my_chmod(file, 0o777)
+  if os.path.isdir(filename):
+    my_chmod(filename, 0o777)
   else:
-    my_chmod(file, 0o664)
+    my_chmod(filename, 0o664)
 
 def dest_from_src(srcdir) :
   return os.path.join(dest_base, os.path.relpath(srcdir, src_base))
@@ -156,11 +157,13 @@ def create_dest(srcdir):
     in the destination tree.
   Return: New destination directory
   """
+  dest_path = dest_from_src(srcdir)
   try:
-    os.makedirs(dest_from_src(srcdir))
+    os.makedirs(dest_path)
   except:
     pass
-  return dest_from_src(srcdir)
+  add_perms(dest_path)
+  return dest_path
 
 def computeurl(cur_path_from_base, rel_link_path):
   """ Build a local link.
@@ -208,11 +211,7 @@ def symlink_files(src_path, dest_path):
   # Create the directory if it doesn't exist
   src_path = os.path.normpath(src_path)
   dest_path = os.path.normpath(dest_path)
-  try:
-    os.makedirs(dest_path)
-    add_perms(dest_path)
-  except:
-    pass
+  create_dest(src_path)
   files = listdir(src_path)
   # Create symlinks to all the files
   for f_src_path in files:
@@ -341,6 +340,8 @@ def pages_from_datafiles(context, directory=None):
   Returns: None
   """
   global curdir
+  global src_base
+  global dest_base
   if directory is None:
     directory = curdir 
   if directory == '':
@@ -584,8 +585,7 @@ def bloglist_dump_posts(gen_header, gen_footer, gen_title, blog_list, directory=
     directory = '.'
   directory = os.path.relpath(directory, src_base)
   src_path = os.path.join(src_base, directory)
-  create_dest(src_path)
-  dest_path = dest_from_src(src_path)
+  dest_path = create_dest(src_path)
   rel_path = os.path.relpath(src_path, src_base)
   for (i,e) in enumerate(blog_list):
     new_rel_path = os.path.join(rel_path, e['subdir'])
