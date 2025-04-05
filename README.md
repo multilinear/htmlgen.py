@@ -1,3 +1,6 @@
+# MIGRATED!
+This repo is abandoned in protest of Microsoft and US politics, please see https://codeberg.org/multilinear/htmlgen.py
+
 htmlgen.py
 ==========
 
